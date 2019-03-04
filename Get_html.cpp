@@ -5,8 +5,7 @@
 #include<sys/socket.h>
 #include<sys/types.h>
 #include<netinet/in.h>
-#define PORT 8848
-#define	BACKLOG 10
+#include"Get_html.h"
 using namespace std;
 
 int main(){
