@@ -15,4 +15,4 @@ File_ope.o: File_ope.cpp
 	$(cc) -c $< -o $@
 
 clean:
-	rm -rf  $(tar) $(prom)
+	rm -rf  $(tar) $(obj)
