@@ -3,8 +3,10 @@
 #include<cstdlib>
 #include<unistd.h>
 #include<sys/socket.h>
-#include"File_ope.cpp"
+#include<sys/stat.h>
+#include<errno.h>
 #include"Deal_req.h"
+#include"File_ope.h"
 using namespace std;
 
 
@@ -108,6 +110,24 @@ int http_req::deal_post(){
 		strcpy(file_type,"text/plain");
 	return 0;
 }
+int http_req::http_404(int sock,struct stat buf){
+	char *Error;
+	Error=(char *)calloc(BUFFSIZE,sizeof(char));
+	sprintf(Error,"HTTP/1.1 404 NOT_FOUND\r\n\
+	Connection: close\r\ncontent-length:%lld\r\n\r\n",buf.st_size);
+	int res=send(sock,Error,strlen(Error),0);
+	free(Error);
+	return res;
+}
+int http_req::http_403(int sock,struct stat buf){
+	char *Error;
+	Error=(char *)calloc(BUFFSIZE,sizeof(char));
+	sprintf(Error,"HTTP/1.1 403 FORBIDDEN\r\n\
+	Connection: close\r\ncontent-length:%lld\r\n\r\n",buf.st_size);
+	int res=send(sock,Error,strlen(Error),0);
+	free(Error);
+	return res;
+}
 int http_req::deal_req(int sock,char *req){
 	req_break(req);
 	reqline_analyse();
@@ -117,14 +137,16 @@ int http_req::deal_req(int sock,char *req){
 	else if(!strcmp(method,"GET")){
 		deal_get();
 	}
-	FILE *fd=fopen(file_path,"rb");
-
-	if(fd==NULL){
-		char Error[]="HTTP/1.0 404 Not Found\r\n\
-		 Content-Type: text/plain 404 not found by Manio";
-		send(sock,Error,strlen(Error),0);
+	struct stat buf;
+	int ret=stat(file_path,&buf);
+	if(ret==-1){
+		if(errno==ENOENT)			//文件不存在
+			http_404(sock,buf);
+		else if(errno==EACCES)		//访问受限，linux中为EACCESS，unix中为EACCES
+			http_403(sock,buf);
 	}
 	else{
+		FILE *fd=fopen(file_path,"rb");
 		int file_size=get_file_size(file_path);
 		//int opened_file=open(fp,O_RDONLY);
 		char *memfile=(char *)calloc(file_size,sizeof(char));
