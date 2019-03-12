@@ -21,15 +21,15 @@ void threadpool_add_task(threadpool *pool,void *(*run)(void *arg),void *arg){
 	if(pool->first==NULL){	//第一个任务加入
 		pool->first=newtask;
 	}
-	else{
+	else{					//否则加入到最后
 		pool->last->next=newtask;
 	}
 	pool->last=newtask;
 
-	if(pool->idle){
+	if(pool->idle){		//如果有空闲进程，则可以唤醒它来执行pool中新加入队列的任务
 		pool->ready.signal();
 	}
-	else if(pool->sum<pool->max_threads){
+	else if(pool->sum<pool->max_threads){//如果没有空闲进程，且线程数小于最大线程数，那么创建新进程
 		pthread_t tid;
 		pthread_create(&tid,NULL,thread_routine,pool);
 		pool->sum++;

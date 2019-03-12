@@ -14,6 +14,7 @@
 #include"WebServer.h"
 #include"Deal_req.h"
 #include"File_ope.h"
+#include"Thread_pool.h"
 using namespace std;
 
 int main(int argc,char *argv[]){
@@ -21,6 +22,8 @@ int main(int argc,char *argv[]){
 	socklen_t len;
 	struct kevent *chlist;		//监听事件
 	struct kevent *evlist; 		//触发事件
+	struct http_req *reqs;		//用来处理请求
+	threadpool pool;			//线程池
 	int kq;						//kqueue队列
 
 	int sockfd=socket(PF_INET,SOCK_STREAM,0);//建立套接字
@@ -54,6 +57,10 @@ int main(int argc,char *argv[]){
 	//初始化kevent结构体
 	chlist=(struct kevent*)malloc(sizeof(struct kevent));
 	evlist=(struct kevent*)malloc(sizeof(struct kevent)*MAXEVENT);
+	//初始化请求结构体
+	reqs=(struct http_req*)malloc(sizeof(struct http_req)*MAXEVENT);
+    //初始化线程池线程数为最大能处理请求
+    threadpool_init(&pool, MAXEVENT);
 
 	EV_SET(chlist,sockfd,EVFILT_READ,EV_ADD|EV_ENABLE,0,0,0);	//注册事件
 	while(true){
@@ -61,6 +68,10 @@ int main(int argc,char *argv[]){
 		int nev=kevent(kq,chlist,1,evlist,MAXEVENT,NULL);	//无限阻塞
 		if(nev<0){
 			perror("kevent");
+		}
+		else if(nev>MAXEVENT){
+			printf("Too many requests\n");
+			exit(1);
 		}
 		else{
 			printf("------------------------------------------------\n");
@@ -88,8 +99,10 @@ int main(int argc,char *argv[]){
 
 					if(buff!=NULL){
 						printf("Got request.\n");
-						http_req new_req;
-						new_req.deal_req(nsockfd,buff);
+						reqs[i].req_init(nsockfd,buff);
+						http_req *arg=(http_req *)malloc(sizeof(http_req));
+						*arg=reqs[i];
+						threadpool_add_task(&pool,deal_req,arg);	//加入线程池
 					}
 					close(nsockfd);				//关闭网络连接,在unistd.h中
 				}
@@ -100,6 +113,7 @@ int main(int argc,char *argv[]){
 		free(buff);
 	}
 
+	threadpool_destroy(&pool);	//销毁线程池
 	free(chlist);				//内存释放
 	free(evlist);
 	close(kq);
