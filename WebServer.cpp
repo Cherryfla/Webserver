@@ -74,12 +74,12 @@ int main(int argc,char *argv[]){
 			exit(1);
 		}
 		else{
-			printf("------------------------------------------------\n");
 			printf("The num of req is:%d\n",nev);
 			if(evlist[0].flags&EV_EOF){		//读取socket关闭指示
 				exit(EXIT_FAILURE);
 			}
 			for(int i=0;i<nev;i++){
+				printf("------------------------------------------------\n");
 				if(evlist[i].flags&EV_ERROR){
 					printf("EV_ERROR:%s\n",strerror(evlist[i].data));
 					exit(EXIT_FAILURE);
@@ -98,16 +98,18 @@ int main(int argc,char *argv[]){
 					printf("Recive message from client: \n%s\n",buff);
 
 					if(buff!=NULL){
-						printf("Got request.\n");
+						printf("--------Got request.-------\n");
 						reqs[i].req_init(nsockfd,buff);
 						http_req *arg=(http_req *)malloc(sizeof(http_req));
 						*arg=reqs[i];
+					//	printf("DEBUG________________SOCKET1:%d\n",nsockfd);
+						//deal_req(arg);
 						threadpool_add_task(&pool,deal_req,arg);	//加入线程池
 					}
-					close(nsockfd);				//关闭网络连接,在unistd.h中
 				}
+				printf("------------------------------------------------\n");
 			}
-			printf("------------------------------------------------\n");
+			
 			//	sleep(100);
 		}
 		free(buff);
