@@ -18,11 +18,11 @@ int http_req::req_init(int n_sock,char *n_req){
 }
 int http_req::req_break(){
 	char *tmp=req;
-	if(tmp==NULL)
+	if(tmp==nullptr)
 		return -1;
 	req_line=tmp;
 	tmp=strchr(tmp,'\r');
-	if(tmp==NULL)
+	if(tmp==nullptr)
 		return -1;
 	*tmp='\0';
 	tmp++;
@@ -45,18 +45,20 @@ int http_req::req_break(){
 	return 0;
 }
 int http_req::reqline_analyse(){
-	if(req_line==NULL)
+	if(req_line==nullptr)
 		return -1;
 	char *tmp=req_line;
 	method=tmp;
 	tmp=strchr(tmp,' ');
-	if(tmp==NULL)
+	if(tmp==nullptr)
 		return -1;
-	*tmp='\0';
-	tmp++;
+	for(int i=0;i<2;i++){
+		*tmp='\0';
+		tmp++;
+	}
 	url=tmp;
 	tmp=strchr(tmp,' ');
-	if(tmp==NULL)
+	if(tmp==nullptr)
 		return -1;
 	*tmp='\0';
 	tmp++;
@@ -65,7 +67,7 @@ int http_req::reqline_analyse(){
 }
 int http_req::deal_get(){
 	char *p=strchr(url,'?');
-	if(p!=NULL){
+	if(p!=nullptr){
 		argv=p+1;		//获取get参数
 		*p='\0';
 	}
@@ -74,7 +76,7 @@ int http_req::deal_get(){
 		return -1;
 	char *tmp=strrchr(file_path,'.');
 	memset(file_type,0,sizeof(file_type));
-	if(tmp==NULL)
+	if(tmp==nullptr)
 		strcpy(file_type,"text/plain");
 	else
 		tmp++;
@@ -97,7 +99,7 @@ int http_req::deal_post(){
 	if(file_path[0]=='\0')
 		return -1;
 	char *tmp=strrchr(file_path,'.');
-	if(tmp==NULL)
+	if(tmp==nullptr)
 		strcpy(file_type,"text/plain");
 	else
 		tmp++;
@@ -119,8 +121,8 @@ int http_req::deal_post(){
 int http_req::http_404(struct stat buf){
 	char *Error;
 	Error=(char *)calloc(BUFFSIZE,sizeof(char));
-	sprintf(Error,"HTTP/1.1 404 NOT_FOUND\r\n\
-	Connection: close\r\ncontent-length:%lld\r\n\r\n",buf.st_size);
+	sprintf(Error,"HTTP/1.1 404 NOT FOUND\r\n\
+	Connection: close\r\ncontent-length:%lld\r\n\r\n",0ll);
 	int res=send(sock,Error,strlen(Error),0);
 	free(Error);
 	return res;
@@ -129,7 +131,7 @@ int http_req::http_403(struct stat buf){
 	char *Error;
 	Error=(char *)calloc(BUFFSIZE,sizeof(char));
 	sprintf(Error,"HTTP/1.1 403 FORBIDDEN\r\n\
-	Connection: close\r\ncontent-length:%lld\r\n\r\n",buf.st_size);
+	Connection: close\r\ncontent-length:%lld\r\n\r\n",0ll);
 	int res=send(sock,Error,strlen(Error),0);
 	free(Error);
 	return res;
@@ -173,6 +175,7 @@ void* deal_req(void* arg){
 		memset(FlTp,0,sizeof(FlTp));
 
 		strcat(buff,"\r\nHTTP/1.0 200 ok\r\n");		//响应报文的格式
+		strcat(buff,KEEPALIVE?"Connection: keep-alive\r\n":"Connection: keep-alive\r\n");
 		sprintf(FlTp,"Content-Type: %s;charset=UTF-8\r\n",Got_req->file_type);
 		strcat(buff,FlTp);
 	//	strcat(buff,"Content-Type: text/html;charset=UTF-8\r\n");
@@ -186,5 +189,5 @@ void* deal_req(void* arg){
 		close(Got_req->sock);
 		free(memfile);
 	}
-	return NULL;
+	return nullptr;
 }

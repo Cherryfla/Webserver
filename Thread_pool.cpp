@@ -8,18 +8,18 @@
 
 void threadpool_init(threadpool *pool,int max_threads){
 	pool->ready.init();
-	pool->first=pool->last=NULL;
+	pool->first=pool->last=nullptr;
 	pool->sum=pool->idle=0;
 	pool->max_threads=max_threads;
 	pool->quit=0;
 }
 void threadpool_add_task(threadpool *pool,void *(*run)(void *arg),void *arg){
 	task *newtask=(task *)malloc(sizeof(task));
-	newtask->run=run,newtask->arg=arg,newtask->next=NULL;	//创建新任务
+	newtask->run=run,newtask->arg=arg,newtask->next=nullptr;	//创建新任务
 
 	pool->ready.lock();//线程池可能被多个线程操作，因此需要加锁
 
-	if(pool->first==NULL){	//第一个任务加入
+	if(pool->first==nullptr){	//第一个任务加入
 		pool->first=newtask;
 	}
 	else{					//否则加入到最后
@@ -32,7 +32,7 @@ void threadpool_add_task(threadpool *pool,void *(*run)(void *arg),void *arg){
 	}
 	else if(pool->sum<pool->max_threads){//如果没有空闲进程，且线程数小于最大线程数，那么创建新进程
 		pthread_t tid;
-		pthread_create(&tid,NULL,thread_routine,pool);
+		pthread_create(&tid,nullptr,thread_routine,pool);
 		pool->sum++;
 	}
 	pool->ready.unlock();
@@ -45,7 +45,7 @@ void *thread_routine(void *arg){
 		pool->ready.lock();	//加锁防止多线程出错
 
 		//任务列表不为空，肯定要先执行等待队列中的任务
-		if(pool->first!=NULL){
+		if(pool->first!=nullptr){
 			task *t=pool->first;
 			pool->first=t->next;
 			pool->ready.unlock();	//任务执行需要时间，所以先解锁让其他线程有机会访问
@@ -54,7 +54,7 @@ void *thread_routine(void *arg){
 			pool->ready.lock();		//任务执行完成，重新尝试获取控制权
 		}
 		//任务列表为空了，又接受到了线程退出通知，只能退出线程
-		if(pool->first==NULL&&pool->quit){
+		if(pool->first==nullptr&&pool->quit){
 			pool->sum--;			//当前线程从线程池中退出，线程总数减-
 			//线程池中以及没有线程了，唤醒主线程
 			if(pool->sum==0){
@@ -66,7 +66,7 @@ void *thread_routine(void *arg){
 		//此时既无任务可执行，又没有接到线程销毁的通知，所以只能轮询
 		int timeout=0;				//用来判断是否超时的标志
 		pool->idle++;				//当前进程空闲，空闲进程++
-		while(pool->first==NULL&&!pool->quit){
+		while(pool->first==nullptr&&!pool->quit){
 			printf("thread %lu is waiting\n",(ul)pthread_self());
 			struct timespec now;
 			clock_gettime(CLOCK_REALTIME,&now);//获取实时时间
@@ -90,7 +90,7 @@ void *thread_routine(void *arg){
 	}
 	//sleep(2);
 	printf("thread %lu is exiting.\n",(ul)pthread_self());
-	return NULL;	
+	return nullptr;	
 }
 void threadpool_destroy(threadpool *pool){
 	if(pool->quit)

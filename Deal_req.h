@@ -6,7 +6,7 @@
 #include<unistd.h>
 
 #define BUFFSIZE 1024
-
+#define KEEPALIVE 0
 struct http_req{
 	static const int BUFSIZE=128;
 	char *req_line,*req_head,*req_body;
@@ -16,7 +16,7 @@ struct http_req{
 	char *host,*charset,*content_type;//请求头
 	char *req;		//传入的参数，请求报文
 	int sock;		//传入的参数，套接字
-	int req_init(int n_sock,char *n_req);//
+	int req_init(int n_sock,char *n_req);//初始化函数，传入外部参数
 	int req_break();		//将请求分解
 	int reqline_analyse();	//将报文行分解
 	int deal_get();			//处理get请求

@@ -65,7 +65,7 @@ int main(int argc,char *argv[]){
 	EV_SET(chlist,sockfd,EVFILT_READ,EV_ADD|EV_ENABLE,0,0,0);	//注册事件
 	while(true){
 		char *buff=(char *)calloc(BUFFSIZE,sizeof(char));	//初始化buff
-		int nev=kevent(kq,chlist,1,evlist,MAXEVENT,NULL);	//无限阻塞
+		int nev=kevent(kq,chlist,1,evlist,MAXEVENT,nullptr);	//无限阻塞
 		if(nev<0){
 			perror("kevent");
 		}
@@ -97,7 +97,7 @@ int main(int argc,char *argv[]){
 
 					printf("Recive message from client: \n%s\n",buff);
 
-					if(buff!=NULL){
+					if(buff!=nullptr){
 						printf("--------Got request.-------\n");
 						reqs[i].req_init(nsockfd,buff);
 						http_req *arg=(http_req *)malloc(sizeof(http_req));
