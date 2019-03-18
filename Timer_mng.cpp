@@ -1,122 +1,140 @@
 #include<cstdio>
 #include<cstring>
-#include<boost/function.hpp>
 #include<sys/time.h>
+#include<vector>
+#include"Timer_mng.h"
+using namespace std;
+//Timer
 
+Timer::Timer(){
+    heapIndex=-1;
+}
+void Timer::Start(void *(*run)(void *args),void *arg,ull itvl, t_type ttype){
+    itvl=itvl;
+    this->run=run,this->arg=arg;
+    ttype=ttype;
+    printf("Now :%llu\n",Get_now());
+    expires=itvl+Get_now();
+}
+ 
+void Timer::OnTimer(){
+    heapIndex=-1;
+   // printf("%d\n",*(int*)arg);
+    this->run(this->arg);
+}
+ 
+//Timer_mng
 
-template<typename Fun>
-inline void Timer::Start(Fun fun, unsigned interval, TimerType timeType){
-    Stop();
-    interval=interval;
-    timerFun=fun;
-    timerType=timeType;
-    timer->expires=timer->interval+TimerManager::Get_now();
-    manager.AddTimer(this);
+Timer_mng::~Timer_mng(){
+    heap.clear();
 }
-Timer::Timer(TimerManager& manager):manager(manager),heapIndex(-1){}
-Timer::~Timer(){
-    Stop();
-}
-void Timer::Stop(){
-    if(heapIndex!=-1){
-        manager.RemoveTimer(this);
-        heapIndex=-1;
-    }
-}
- 
-void Timer::OnTimer(ull Now){
-    if(timerType==CIRCLE){
-        expires=interval+Now;
-        manager.AddTimer(this);
-    }
-    else{
-        heapIndex=-1;
-    }
-    timerFun();
-}
- 
-//////////////////////////////////////////////////////////////////////////
-// TimerManager
- 
-void TimerManager::AddTimer(Timer* timer){
-    timer->heapIndex_ = heap.size();
-    HeapEntry entry = { timer->expires,timer };
+
+void Timer_mng::AddTimer(Timer* timer){  
+    timer->heapIndex=heap.size();
+    Heap_entry *entry=(Heap_entry*)malloc(sizeof(Heap_entry));
+    entry->time=timer->expires;
+    entry->timer=timer;
+//    timer->run(timer->arg);
     heap.push_back(entry);
-    UpHeap(heap.size() - 1);
+    UpHeap(heap.size()-1);
+ //   free(entry);
 }
  
-void TimerManager::RemoveTimer(Timer* timer){
-    size_t index = timer->heapIndex_;
-    if (!heap.empty() && index < heap.size()){
-        if(index == heap.size() - 1){
+void Timer_mng::RemoveTimer(Timer* timer){
+    int idx=timer->heapIndex;
+    if (!heap.empty()&&idx<heap.size()){
+        if(idx==heap.size()-1){
             heap.pop_back();
         }
         else{
-            SwapHeap(index, heap.size() - 1);
+            SwapHeap(idx,heap.size()-1);
             heap.pop_back();
-            size_t parent = (index - 1) / 2;
-            if(index>0 && heap[index].time < heap[parent].time)
-                UpHeap(index);
+            int parent=(idx-1)/2;  //堆中父节点编号
+            if(idx>0&&heap[idx]->time<heap[parent]->time)
+                UpHeap(idx);
             else
-                DownHeap(index);
+                DownHeap(idx);
         }
     }
 }
  
-void TimerManager::DetectTimers(){
-    ull now = GetCurrentMillisecs();
- 
-    while (!heap.empty()&&heap[0].time<=now){
-        Timer* timer = heap[0].timer;
-        RemoveTimer(timer);
-        timer->OnTimer(now);
+void Timer_mng::DetectTimers(){
+    printf("----%lu\n",heap.size());
+    while(!heap.empty()){
+        ull now=Get_now();
+        if(heap[0]->time<=now){
+            Timer *timer=(Timer *)malloc(sizeof(Timer));
+            timer=heap[0]->timer;
+      //      printf("%d\n",*(int *)heap[0]->timer->arg);
+            if(heap[0]->timer->run==NULL||heap[0]->timer->arg==NULL){
+                perror("ERROR!");
+                return;
+            }
+
+           // heap[0]->timer->run(heap[0]->timer->arg);
+            RemoveTimer(timer);
+            if(timer->ttype==CIRCLE){
+                timer->expires=timer->itvl+Get_now();
+                this->AddTimer(timer);
+            }
+            timer->OnTimer();
+           // printf("xxx\n");
+        }
     }
 }
  
-void TimerManager::UpHeap(size_t idx){
-    size_t parent=(idx-1) / 2;
-    while (index>0&& heap[idx].time<heap[parent].time){
-        SwapHeap(idx, parent);
-        index=parent;
-        parent=(idx - 1) / 2;
+void Timer_mng::UpHeap(int idx){
+    int parent=(idx-1)/2;
+    while(idx>0&&heap[idx]->time<heap[parent]->time){
+        SwapHeap(idx,parent);
+        idx=parent;
+        parent=(idx-1)/2;
     }
 }
  
-void TimerManager::DownHeap(size_t index)
-{
-    size_t child=index* 2 + 1;
-    while (child < heap.size()){
-        size_t minChild = (child + 1 == heap.size() || heap[child].time < heap[child + 1].time)
-            ? child : child + 1;
-        if (heap[index].time < heap[minChild].time)
+void Timer_mng::DownHeap(int idx){
+    int child=idx*2+1;
+    while(child<heap.size()){
+        int minChild=(child+1==heap.size()||heap[child]->time<heap[child+1]->time)
+            ?child:child+1;
+        if(heap[idx]->time<heap[minChild]->time)
             break;
-        SwapHeap(index, minChild);
-        index = minChild;
-        child = index * 2 + 1;
+        SwapHeap(idx,minChild);
+        idx=minChild;
+        child=idx*2+1;
     }
 }
  
-void TimerManager::SwapHeap(size_t index1, size_t index2){
-    HeapEntry tmp=heap[index1];
-    heap[index1]=heap[index2];
-    heap[index2]=tmp;
-    heap[index1].timer->heapIndex=index1;
-    heap[index2].timer->heapIndex=index2;
+void Timer_mng::SwapHeap(int idx1, int idx2){
+    Heap_entry *tmp=heap[idx1];
+    heap[idx1]=heap[idx2];
+    heap[idx2]=tmp;
+    heap[idx1]->timer->heapIndex=idx1;
+    heap[idx2]->timer->heapIndex=idx2;
 }
- 
- 
-ull TimerManager::Get_now()
-{
-#ifdef _MSC_VER
-    _timeb timebuffer;
-    _ftime(&timebuffer);
-    ull ret = timebuffer.time;
-    ret = ret * 1000 + timebuffer.millitm;
-    return ret;
-#else
-    timeval tv;         
-    ::gettimeofday(&tv, 0);
-    ull ret = tv.tv_sec;
-    return ret * 1000 + tv.tv_usec / 1000;
-#endif
+
+ull Get_now(){
+    #ifdef _MSC_VER
+        _timeb timebuffer;
+        _ftime(&timebuffer);
+        ull ret=timebuffer.time;
+        ret=ret*1000+timebuffer.millitm;
+        return ret;
+    #else
+        timeval tv;         
+        ::gettimeofday(&tv,0);
+        ull ret=tv.tv_sec;
+        return ret*1000+tv.tv_usec/1000;
+    #endif
 }
+// init()
+
+// AddTimer()---->UpHeap()
+      
+// DetectTimers()----->RemoveTimer()--->UpHeap()------|
+//              |             |    |                  |
+//              |             |    --->DownHeap()-----|
+//              |             |                       |
+//              |             ---------------------->SwapHeap()
+//              |
+//              --->OnTimer()(AddTimer())
