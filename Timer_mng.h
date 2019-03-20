@@ -15,6 +15,22 @@ struct Heap_entry{		//堆条目
 	unsigned long long time;
 	Timer *timer;
 };
+
+class My_vector{	//自己实现的vector
+	private:
+		static const int SIZE=1024;
+		Heap_entry **array;
+		int tail;
+	public:
+		My_vector();
+		void push_back(Heap_entry *val);
+		~My_vector();
+		void pop_back();
+		int size();
+		int empty();
+		Heap_entry* operator[](const int idx)const;
+		void set_val(int idx,Heap_entry *val);
+};
 struct Timer{
 	t_type ttype;		//任务类型，一次还是循环
 	void *(*run)(void *args);	//回调函数
@@ -27,7 +43,7 @@ struct Timer{
 	void OnTimer();				//无剩余时间		
 };
 struct Timer_mng{
-	vector<Heap_entry*>heap;		//堆
+	vector<Heap_entry*> *heap;		//堆
 	~Timer_mng();					//析构函数
 	void DetectTimers();			//检测是否超时
 	void AddTimer(Timer* timer);	//向堆中添加一个定时器
@@ -38,5 +54,5 @@ struct Timer_mng{
 };
 
 ull Get_now();			//得到当前时间(ms)
-
+void *Timers_det(void *arg);
 #endif

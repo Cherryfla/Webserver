@@ -56,7 +56,7 @@ void *thread_routine(void *arg){
 		//任务列表为空了，又接受到了线程退出通知，只能退出线程
 		if(pool->first==nullptr&&pool->quit){
 			pool->sum--;			//当前线程从线程池中退出，线程总数减-
-			//线程池中以及没有线程了，唤醒主线程
+			//线程池中已经没有线程了，唤醒主线程
 			if(pool->sum==0){
 				pool->ready.signal();
 			}

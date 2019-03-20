@@ -186,7 +186,7 @@ void* deal_req(void* arg){
 		send(Got_req->sock,memfile,file_size,0);
 		printf("Send successfully\r\n\r\n");
 		
-		close(Got_req->sock);
+//		close(Got_req->sock);
 		free(memfile);
 	}
 	return nullptr;

@@ -4,9 +4,10 @@
 #include<cstring>
 #include<cstdlib>
 #include<unistd.h>
+#include"Timer_mng.h"
 
 #define BUFFSIZE 1024
-#define KEEPALIVE 0
+#define KEEPALIVE 1
 struct http_req{
 	static const int BUFSIZE=128;
 	char *req_line,*req_head,*req_body;
