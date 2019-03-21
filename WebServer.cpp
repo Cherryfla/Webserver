@@ -28,6 +28,27 @@ int main(int argc,char *argv[]){
 	int reuse=1,kq;				//控制端口复用，kqueue队列
 	vector<Heap_entry*>Heap;	//用来管理定时器的堆
 	//-------------------------------------------------------
+
+	//---------------------------初始化区-----------------------
+	//初始化kevent结构体
+	chlist=(struct kevent*)malloc(sizeof(struct kevent));
+	evlist=(struct kevent*)malloc(sizeof(struct kevent)*MAXEVENT);
+	//初始化定时器管理结构体
+	Mymng=(struct Mng_union*)malloc(sizeof(struct Mng_union));
+	Mymng->manager=(struct Timer_mng*)malloc(sizeof(Timer_mng));
+	Mymng->mutex=(struct my_mutex*)malloc(sizeof(my_mutex));
+	Mymng->mutex->init();
+	Mymng->manager->heap=&Heap;			//vector指针操作
+	//初始化请求结构体
+	reqs=(struct Req_union*)malloc(sizeof(struct Req_union)*MAXEVENT);
+	for(int i=0;i<MAXEVENT;i++){
+		reqs[i].request=(http_req*)malloc(sizeof(http_req));
+		reqs[i].timer=(Timer*)malloc(sizeof(Timer));
+	}
+    //初始化线程池线程数为最大能处理请求
+    threadpool_init(&pool, MAXEVENT+1);
+    //--------------------------------------------------------
+
 	int sockfd=socket(PF_INET,SOCK_STREAM,0);//建立套接字
 	if(sockfd==-1){
 		perror("Socket");
@@ -61,24 +82,7 @@ int main(int argc,char *argv[]){
 		perror("kqueue");
 		exit(1);
 	}
-	//---------------------------初始化区-----------------------
-	//初始化kevent结构体
-	chlist=(struct kevent*)malloc(sizeof(struct kevent));
-	evlist=(struct kevent*)malloc(sizeof(struct kevent)*MAXEVENT);
-	//初始化定时器管理结构体
-	Mymng=(struct Mng_union*)malloc(sizeof(struct Mng_union));
-	Mymng->manager=(struct Timer_mng*)malloc(sizeof(Timer_mng));
-	Mymng->mutex=(struct my_mutex*)malloc(sizeof(my_mutex));
-	Mymng->manager->heap=&Heap;
-	//初始化请求结构体
-	reqs=(struct Req_union*)malloc(sizeof(struct Req_union)*MAXEVENT);
-	for(int i=0;i<MAXEVENT;i++){
-		reqs[i].request=(http_req*)malloc(sizeof(http_req));
-		reqs[i].timer=(Timer*)malloc(sizeof(Timer));
-	}
-    //初始化线程池线程数为最大能处理请求
-    threadpool_init(&pool, MAXEVENT+1);
-    //--------------------------------------------------------
+
 	EV_SET(chlist,sockfd,EVFILT_READ,EV_ADD|EV_ENABLE,0,0,0);	//注册事件
 	threadpool_add_task(&pool,Timers_det,Mymng);				//开启一个线程用来管理定时器
 	while(true){
@@ -126,18 +130,10 @@ int main(int argc,char *argv[]){
 						int *fd_arg=(int*)malloc(sizeof(int));
 						*fd_arg=reqs[i].request->sock;
 						reqs[i].timer->Start(call_back,fd_arg,CBTIME,ONCE);
-						Mymng->mutex->lock();
-
-						// reqs[i].timer->heapIndex=Mymng->manager->heap->size();
-						// Heap_entry *entry=(Heap_entry*)malloc(sizeof(Heap_entry));
-					 //    entry->time=reqs[i].timer->expires;
-					 //    entry->timer=reqs[i].timer;
-						// Mymng->manager->heap->push_back(entry);
-						// printf("11111\n");
-						
+						Mymng->mutex->lock();					//多线程操作加锁	
 						Mymng->manager->AddTimer(reqs[i].timer);
-						Mymng->mutex->signal();
-						Mymng->mutex->unlock();
+						Mymng->mutex->signal();					//唤醒睡眠的定时器管理线程
+						Mymng->mutex->unlock();					//解锁
 					//	printf("DEBUG________________SOCKET1:%d\n",nsockfd);
 						//deal_req(arg);
 					//	free(fd_arg);
@@ -145,7 +141,6 @@ int main(int argc,char *argv[]){
 				}
 				printf("------------------------------------------------\n");
 			}
-			
 			//	sleep(100);
 		}
 		free(buff);
