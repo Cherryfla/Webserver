@@ -1,6 +1,7 @@
 #ifndef __TIMER_MNG_
 #define __TIMER_MNG_
 
+#include<vector>
 #define ull unsigned long long 
 #define __INF__ 1e18
 

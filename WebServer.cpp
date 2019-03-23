@@ -27,9 +27,13 @@ int main(int argc,char *argv[]){
 	Mng_union *Mymng;			//定时器管理单元
 	int reuse=1,kq;				//控制端口复用，kqueue队列
 	vector<Heap_entry*>Heap;	//用来管理定时器的堆
+	int **fd_arg;				//用来传递多线程参数
 	//-------------------------------------------------------
 
 	//---------------------------初始化区-----------------------
+	fd_arg=new int*[MAXEVENT];
+	for(int i=0;i<MAXEVENT;i++)
+		fd_arg[i]=new int;
 	//初始化kevent结构体
 	chlist=(struct kevent*)malloc(sizeof(struct kevent));
 	evlist=(struct kevent*)malloc(sizeof(struct kevent)*MAXEVENT);
@@ -127,8 +131,8 @@ int main(int argc,char *argv[]){
 						reqs[i].request->req_init(nsockfd,buff);
 						threadpool_add_task(&pool,deal_req,reqs[i].request);	//加入线程池
 						//---------------定时器操作--------------
-						int *fd_arg=(int*)malloc(sizeof(int));
-						*fd_arg=reqs[i].request->sock;
+						// int *fd_arg=(int*)malloc(sizeof(int));
+						fd_arg[i]=&reqs[i].request->sock;
 						reqs[i].timer->Start(call_back,fd_arg,CBTIME,ONCE);
 						Mymng->mutex->lock();					//多线程操作加锁	
 						Mymng->manager->AddTimer(reqs[i].timer);
@@ -147,6 +151,9 @@ int main(int argc,char *argv[]){
 	}
 
 	//--------------内存释放，关闭端口---------------------
+	for(int i=0;i<MAXEVENT;i++)
+		delete fd_arg[i];
+	delete [] fd_arg;
 	free(Mymng->manager);
 	free(Mymng->mutex);
 	free(Mymng);

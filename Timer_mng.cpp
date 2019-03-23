@@ -2,7 +2,6 @@
 #include<cstring>
 #include<sys/time.h>
 #include<iostream>
-#include<vector>
 #include"Timer_mng.h"
 #include"WebServer.h"
 using namespace std;
