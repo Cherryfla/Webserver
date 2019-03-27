@@ -205,17 +205,17 @@ void* GetMemory(size_t sMemorySize, Memory_pool* pMem){
         size_t current_idx=(current_block-pMem->pmem_map);  
         pMem->pmem_map[current_idx+current_block->count-1].start=current_idx;  
         current_block->pmem_chunk=nullptr; // nullptr表示当前内存块已被分配  
-        // 当前block被一分为二，更新第二个block中的内容  
+        // 当前block被一分为二，更新第二个block中的内容
         pMem->pmem_map[current_idx+current_block->count].count=copy.count-current_block->count;  
         pMem->pmem_map[current_idx+current_block->count].pmem_chunk=copy.pmem_chunk;  
-        // 更新原来的pfree_mem_addr  
-        tmp->pfree_mem_addr=&(pMem->pmem_map[current_idx+current_block->count]);  
+        // 更新原来的pfree_mem_addr
+        tmp->pfree_mem_addr=&(pMem->pmem_map[current_idx+current_block->count]);
       
-        size_t end_idx=current_idx+copy.count-1;  
+        size_t end_idx=current_idx+copy.count-1;
         pMem->pmem_map[end_idx].start=current_idx+current_block->count;  
         return idx2addr(pMem, current_idx);  
     }     
-}  
+}
 /************************************************************************/  
 /* 从内存池中释放申请到的内存 
 * pMem：内存池指针 

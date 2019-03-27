@@ -29,8 +29,7 @@ class My_vector{	//自己实现的vector
 		void pop_back();
 		int size();
 		int empty();
-		Heap_entry* operator[](const int idx)const;
-		void set_val(int idx,Heap_entry *val);
+		Heap_entry*& operator[](int idx);
 };
 struct Timer{
 	t_type ttype;		//任务类型，一次还是循环

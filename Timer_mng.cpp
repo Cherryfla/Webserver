@@ -19,8 +19,8 @@ void My_vector::push_back(Heap_entry* val){
 void My_vector::pop_back(){--tail;}
 int My_vector::size(){return tail;}
 int My_vector::empty(){return tail==0;}
-Heap_entry* My_vector::operator[](const int idx)const {return array[idx];}
-void My_vector::set_val(int idx,Heap_entry *val){array[idx]=val;}
+Heap_entry*& My_vector::operator[](int idx){return array[idx];}
+
 
 //Timer
 Timer::Timer(){

@@ -1,0 +1,6 @@
+test.*
+.vscode
+mymake
+test
+*.o
+.DS_Store
