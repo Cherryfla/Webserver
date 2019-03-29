@@ -1,6 +1,7 @@
 #ifndef __WEB_SERVER_H_
 #define __WEB_SERVER_H_
 #include<cstdio>
+#include<iostream>
 #include<stdio.h>
 #include<cstring>
 #include<cstdlib>
@@ -15,16 +16,19 @@
 #include<fcntl.h>
 #include<vector>
 #include"Deal_req.h"
-#include"Mutex/Mutex.h"
 #include"File_ope.h"
-#include"Thread_pool/Thread_pool.h"
 #include"Timer_mng.h"
+#include"Mutex/Mutex.h"
+#include"Thread_pool/Thread_pool.h"
+#include"Memory_pool/Memory_pool.h"
 
 #define PORT 8848		//端口号
 #define BACKLOG 10		//等待队列长度
 #define BUFFSIZE 1024
 #define MAXEVENT 7
 #define CBTIME 10000
+
+const size_t MSIZE=128*1024*1024;
 struct Req_union{
 	http_req *request;
 	Timer *timer;

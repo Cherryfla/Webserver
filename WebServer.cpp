@@ -23,7 +23,8 @@ int main(int argc,char *argv[]){
 	struct kevent *chlist;		//监听事件
 	struct kevent *evlist; 		//触发事件
 	struct Req_union *reqs;		//用来处理请求
-	threadpool pool;			//线程池
+	threadpool tpool;			//线程池
+	memorypool *mpool;			//内存池
 	Mng_union *Mymng;			//定时器管理单元
 	int reuse=1,kq;				//控制端口复用，kqueue队列
 	vector<Heap_entry*>Heap;	//用来管理定时器的堆
@@ -31,28 +32,46 @@ int main(int argc,char *argv[]){
 	//-------------------------------------------------------
 
 	//---------------------------初始化区-----------------------
-	fd_arg=new int*[MAXEVENT];
+	mpool=CreateMemoryPool(MSIZE);
+	fd_arg=(int**)GetMemory(MAXEVENT*sizeof(int*),mpool);
 	for(int i=0;i<MAXEVENT;i++)
-		fd_arg[i]=new int;
+		fd_arg[i]=(int*)GetMemory(sizeof(int),mpool);
 	//初始化kevent结构体
-	chlist=(struct kevent*)malloc(sizeof(struct kevent));
-	evlist=(struct kevent*)malloc(sizeof(struct kevent)*MAXEVENT);
+	chlist=(struct kevent*)GetMemory(sizeof(struct kevent),mpool);
+	evlist=(struct kevent*)GetMemory(sizeof(struct kevent)*MAXEVENT,mpool);
+
 	//初始化定时器管理结构体
-	Mymng=(struct Mng_union*)malloc(sizeof(struct Mng_union));
-	Mymng->manager=(struct Timer_mng*)malloc(sizeof(Timer_mng));
-	Mymng->mutex=(struct my_mutex*)malloc(sizeof(my_mutex));
+	Mymng=(struct Mng_union*)GetMemory(sizeof(struct Mng_union),mpool);
+	Mymng->manager=(struct Timer_mng*)GetMemory(sizeof(Timer_mng),mpool);
+	Mymng->mutex=(struct my_mutex*)GetMemory(sizeof(my_mutex),mpool);
+	reqs=(struct Req_union*)GetMemory(sizeof(struct Req_union)*MAXEVENT,mpool);
+	for(int i=0;i<MAXEVENT;i++){
+		reqs[i].request=(http_req*)GetMemory(sizeof(http_req),mpool);
+		reqs[i].timer=(Timer*)GetMemory(sizeof(Timer),mpool);
+	}
+	
+	// fd_arg=new int*[MAXEVENT];
+	// for(int i=0;i<MAXEVENT;i++)
+	// 	fd_arg[i]=new int;
+	// //初始化kevent结构体
+	// chlist=(struct kevent*)malloc(sizeof(struct kevent));
+	// evlist=(struct kevent*)malloc(sizeof(struct kevent)*MAXEVENT);
+	// //初始化定时器管理结构体
+	// Mymng=(struct Mng_union*)malloc(sizeof(struct Mng_union));
+	// Mymng->manager=(struct Timer_mng*)malloc(sizeof(Timer_mng));
+	// Mymng->mutex=(struct my_mutex*)malloc(sizeof(my_mutex));
+	
+	// //初始化请求结构体
+	// reqs=(struct Req_union*)malloc(sizeof(struct Req_union)*MAXEVENT);
+	// for(int i=0;i<MAXEVENT;i++){
+	// 	reqs[i].request=(http_req*)malloc(sizeof(http_req));
+	// 	reqs[i].timer=(Timer*)malloc(sizeof(Timer));
+	// }
+    //初始化线程池线程数为最大能处理请求
 	Mymng->mutex->init();
 	Mymng->manager->heap=&Heap;			//vector指针操作
-	//初始化请求结构体
-	reqs=(struct Req_union*)malloc(sizeof(struct Req_union)*MAXEVENT);
-	for(int i=0;i<MAXEVENT;i++){
-		reqs[i].request=(http_req*)malloc(sizeof(http_req));
-		reqs[i].timer=(Timer*)malloc(sizeof(Timer));
-	}
-    //初始化线程池线程数为最大能处理请求
-    threadpool_init(&pool, MAXEVENT+1);
+    threadpool_init(&tpool, MAXEVENT+1);
     //--------------------------------------------------------
-
 	int sockfd=socket(PF_INET,SOCK_STREAM,0);//建立套接字
 	if(sockfd==-1){
 		perror("Socket");
@@ -70,10 +89,7 @@ int main(int argc,char *argv[]){
 	bzero(&(addr.sin_zero),sizeof(addr.sin_zero));	//多余的字节初始为0
 	
 	//将本地端口和套接字绑定
-	if(bind(sockfd,(const struct sockaddr*)&addr,sizeof(addr))==-1){
-		perror("bind");
-		exit(1);
-	}
+	bind(sockfd,(const struct sockaddr*)&addr,sizeof(addr));
 
 	if(listen(sockfd,BACKLOG)==-1){	//第二个参数是等待队列的长度
 		perror("listen");
@@ -88,11 +104,13 @@ int main(int argc,char *argv[]){
 	}
 
 	EV_SET(chlist,sockfd,EVFILT_READ,EV_ADD|EV_ENABLE,0,0,0);	//注册事件
-	threadpool_add_task(&pool,Timers_det,Mymng);				//开启一个线程用来管理定时器
+	threadpool_add_task(&tpool,Timers_det,Mymng);				//开启一个线程用来管理定时器
 	while(true){
 		char *buff=(char *)calloc(BUFFSIZE,sizeof(char));	//初始化buff
+		cout<<1<<endl;
 		int nev=kevent(kq,chlist,1,evlist,MAXEVENT,nullptr);	//无限阻塞
-		if(nev<0){
+		cout<<1<<endl;
+		if(nev<=0){
 			perror("kevent");
 		}
 		else if(nev>MAXEVENT){
@@ -129,7 +147,7 @@ int main(int argc,char *argv[]){
 						printf("--------Got request.-------\n");
 						//---------------线程池操作----------------
 						reqs[i].request->req_init(nsockfd,buff);
-						threadpool_add_task(&pool,deal_req,reqs[i].request);	//加入线程池
+						threadpool_add_task(&tpool,deal_req,reqs[i].request);	//加入线程池
 						//---------------定时器操作--------------
 						// int *fd_arg=(int*)malloc(sizeof(int));
 						fd_arg[i]=&reqs[i].request->sock;
@@ -151,20 +169,34 @@ int main(int argc,char *argv[]){
 	}
 
 	//--------------内存释放，关闭端口---------------------
+	// for(int i=0;i<MAXEVENT;i++)
+	// 	delete fd_arg[i];
+	// delete [] fd_arg;
+	// free(Mymng->manager);
+	// free(Mymng->mutex);
+	// free(Mymng);
+	// for(int i=0;i<MAXEVENT;i++){
+	// 	free(reqs[i].request);
+	// 	free(reqs[i].timer);
+	// }
+	// free(reqs);
+	// free(chlist);				//内存释放
+	// free(evlist);
+
 	for(int i=0;i<MAXEVENT;i++)
-		delete fd_arg[i];
-	delete [] fd_arg;
-	free(Mymng->manager);
-	free(Mymng->mutex);
-	free(Mymng);
+		FreeMemory(fd_arg[i],mpool);
+	FreeMemory(fd_arg,mpool);
+	FreeMemory(Mymng->manager,mpool);
+	FreeMemory(Mymng->mutex,mpool);
+	FreeMemory(Mymng,mpool);
 	for(int i=0;i<MAXEVENT;i++){
-		free(reqs[i].request);
-		free(reqs[i].timer);
+		FreeMemory(reqs[i].request,mpool);
+		FreeMemory(reqs[i].timer,mpool);
 	}
-	free(reqs);
-	threadpool_destroy(&pool);	//销毁线程池
-	free(chlist);				//内存释放
-	free(evlist);
+	FreeMemory(reqs,mpool);
+	FreeMemory(chlist,mpool);				//内存释放
+	FreeMemory(evlist,mpool);
+	threadpool_destroy(&tpool);	//销毁线程池
 	close(kq);
 	close(sockfd);				//close用以关闭一般的文件描述符
 	return 0;
