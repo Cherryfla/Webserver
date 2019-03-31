@@ -114,6 +114,8 @@ int http_req::deal_post(){
 		strcpy(file_type,"image/jpeg");
 	else if(!strcmp(tmp,"png"))
 		strcpy(file_type,"image/png");
+	else if(!strcmp(tmp,"ico"))
+		strcpy(file_type,"image/x-icon")
 	else
 		strcpy(file_type,"text/plain");
 	return 0;
@@ -138,7 +140,14 @@ int http_req::http_403(struct stat buf){
 }
 
 void* deal_req(void* arg){
-	http_req *Got_req=(http_req *)arg;
+	int* Got_arg=static_cast<int*>(arg);
+	char *buff=new char [BUFFSIZE];
+	http_req *Got_req=new http_req;
+
+	recv(*Got_arg,buff,BUFFSIZE,0);
+	printf("Recive message from client: \n%s\n",buff);
+
+	Got_req->req_init(*Got_arg,buff);
 //	printf("DEBUG___________socket2: %d\n",Got_req->sock);
 	Got_req->req_break();
 	Got_req->reqline_analyse();
@@ -189,5 +198,9 @@ void* deal_req(void* arg){
 //		close(Got_req->sock);
 		free(memfile);
 	}
+
+	printf("client connected\n\n");
+	delete [] buff;
+	delete Got_req;
 	return nullptr;
 }

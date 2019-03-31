@@ -17,7 +17,7 @@
 #include<vector>
 #include"Deal_req.h"
 #include"File_ope.h"
-#include"Timer_mng.h"
+#include"Timer/Timer_mng.h"
 #include"Mutex/Mutex.h"
 #include"Thread_pool/Thread_pool.h"
 #include"Memory_pool/Memory_pool.h"
@@ -30,7 +30,7 @@
 
 const size_t MSIZE=128*1024*1024;
 struct Req_union{
-	http_req *request;
+	int sockfd;
 	Timer *timer;
 };
 struct Mng_union{

@@ -46,7 +46,7 @@ int main(int argc,char *argv[]){
 	Mymng->mutex=(struct my_mutex*)GetMemory(sizeof(my_mutex),mpool);
 	reqs=(struct Req_union*)GetMemory(sizeof(struct Req_union)*MAXEVENT,mpool);
 	for(int i=0;i<MAXEVENT;i++){
-		reqs[i].request=(http_req*)GetMemory(sizeof(http_req),mpool);
+		//reqs[i].request=(http_req*)GetMemory(sizeof(http_req),mpool);
 		reqs[i].timer=(Timer*)GetMemory(sizeof(Timer),mpool);
 	}
 	
@@ -106,10 +106,8 @@ int main(int argc,char *argv[]){
 	EV_SET(chlist,sockfd,EVFILT_READ,EV_ADD|EV_ENABLE,0,0,0);	//注册事件
 	threadpool_add_task(&tpool,Timers_det,Mymng);				//开启一个线程用来管理定时器
 	while(true){
-		char *buff=(char *)calloc(BUFFSIZE,sizeof(char));	//初始化buff
-		cout<<1<<endl;
+		//char *buff=(char *)GetMemory(BUFFSIZE*sizeof(char),mpool);	//初始化buff
 		int nev=kevent(kq,chlist,1,evlist,MAXEVENT,nullptr);	//无限阻塞
-		cout<<1<<endl;
 		if(nev<=0){
 			perror("kevent");
 		}
@@ -130,42 +128,41 @@ int main(int argc,char *argv[]){
 				}
 				if(evlist[i].ident==sockfd){
 					int nsockfd=accept(sockfd,(struct sockaddr*)&naddr,&len);	//呼叫地址
-
+					
+					reqs[i].sockfd=nsockfd;
+					fd_arg[i]=&reqs[i].sockfd;
 					//set_nonblock(nsockfd);	//设置非阻塞
 					if(nsockfd==-1){
 						perror("accept");
 						exit(1);
 					}
-					printf("client connected\n\n");
+			////		printf("client connected\n\n");
 
-					recv(nsockfd,buff,BUFFSIZE,0);		//recv将接收到的数据放到buff中
-				//	send(nsockfd,buff,BUFFSIZE,0);		//向客户端发送buff中的内容
+			////	recv(nsockfd,buff,BUFFSIZE,0);		//recv将接收到的数据放到buff中
+			//	send(nsockfd,buff,BUFFSIZE,0);		//向客户端发送buff中的内容
 
-					printf("Recive message from client: \n%s\n",buff);
+			////	printf("Recive message from client: \n%s\n",buff);
 
-					if(buff!=nullptr){
-						printf("--------Got request.-------\n");
-						//---------------线程池操作----------------
-						reqs[i].request->req_init(nsockfd,buff);
-						threadpool_add_task(&tpool,deal_req,reqs[i].request);	//加入线程池
-						//---------------定时器操作--------------
-						// int *fd_arg=(int*)malloc(sizeof(int));
-						fd_arg[i]=&reqs[i].request->sock;
-						reqs[i].timer->Start(call_back,fd_arg,CBTIME,ONCE);
-						Mymng->mutex->lock();					//多线程操作加锁	
-						Mymng->manager->AddTimer(reqs[i].timer);
-						Mymng->mutex->signal();					//唤醒睡眠的定时器管理线程
-						Mymng->mutex->unlock();					//解锁
-					//	printf("DEBUG________________SOCKET1:%d\n",nsockfd);
-						//deal_req(arg);
-					//	free(fd_arg);
-					}
+					//---------------线程池操作----------------
+			////		reqs[i].request->req_init(nsockfd,buff);
+					threadpool_add_task(&tpool,deal_req,fd_arg[i]);	//加入线程池
+					//---------------定时器操作--------------
+					// int *fd_arg=(int*)malloc(sizeof(int));
+			////		fd_arg[i]=&reqs[i].request->sock;
+					reqs[i].timer->Start(call_back,fd_arg[i],CBTIME,ONCE);
+					Mymng->mutex->lock();					//多线程操作加锁	
+					Mymng->manager->AddTimer(reqs[i].timer);
+					Mymng->mutex->signal();					//唤醒睡眠的定时器管理线程
+					Mymng->mutex->unlock();					//解锁
+				//	printf("DEBUG________________SOCKET1:%d\n",nsockfd);
+					//deal_req(arg);
+				//	free(fd_arg);
 				}
 				printf("------------------------------------------------\n");
 			}
 			//	sleep(100);
 		}
-		free(buff);
+		//FreeMemory(buff,mpool);
 	}
 
 	//--------------内存释放，关闭端口---------------------
@@ -190,7 +187,7 @@ int main(int argc,char *argv[]){
 	FreeMemory(Mymng->mutex,mpool);
 	FreeMemory(Mymng,mpool);
 	for(int i=0;i<MAXEVENT;i++){
-		FreeMemory(reqs[i].request,mpool);
+		//FreeMemory(reqs[i].request,mpool);
 		FreeMemory(reqs[i].timer,mpool);
 	}
 	FreeMemory(reqs,mpool);
@@ -199,5 +196,6 @@ int main(int argc,char *argv[]){
 	threadpool_destroy(&tpool);	//销毁线程池
 	close(kq);
 	close(sockfd);				//close用以关闭一般的文件描述符
+	ReleaseMemoryPool(mpool);
 	return 0;
 }
