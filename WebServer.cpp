@@ -50,24 +50,6 @@ int main(int argc,char *argv[]){
 		reqs[i].timer=(Timer*)GetMemory(sizeof(Timer),mpool);
 	}
 	
-	// fd_arg=new int*[MAXEVENT];
-	// for(int i=0;i<MAXEVENT;i++)
-	// 	fd_arg[i]=new int;
-	// //初始化kevent结构体
-	// chlist=(struct kevent*)malloc(sizeof(struct kevent));
-	// evlist=(struct kevent*)malloc(sizeof(struct kevent)*MAXEVENT);
-	// //初始化定时器管理结构体
-	// Mymng=(struct Mng_union*)malloc(sizeof(struct Mng_union));
-	// Mymng->manager=(struct Timer_mng*)malloc(sizeof(Timer_mng));
-	// Mymng->mutex=(struct my_mutex*)malloc(sizeof(my_mutex));
-	
-	// //初始化请求结构体
-	// reqs=(struct Req_union*)malloc(sizeof(struct Req_union)*MAXEVENT);
-	// for(int i=0;i<MAXEVENT;i++){
-	// 	reqs[i].request=(http_req*)malloc(sizeof(http_req));
-	// 	reqs[i].timer=(Timer*)malloc(sizeof(Timer));
-	// }
-    //初始化线程池线程数为最大能处理请求
 	Mymng->mutex->init();
 	Mymng->manager->heap=&Heap;			//vector指针操作
     threadpool_init(&tpool, MAXEVENT+1);
@@ -89,8 +71,8 @@ int main(int argc,char *argv[]){
 	bzero(&(addr.sin_zero),sizeof(addr.sin_zero));	//多余的字节初始为0
 	
 	//将本地端口和套接字绑定
-	bind(sockfd,(const struct sockaddr*)&addr,sizeof(addr));
-
+	::bind(sockfd,(const struct sockaddr*)&addr,sizeof(addr));
+	//bind(sockfd,(const struct sockaddr*)&addr,sizeof(addr),1);
 	if(listen(sockfd,BACKLOG)==-1){	//第二个参数是等待队列的长度
 		perror("listen");
 		exit(1);
@@ -166,19 +148,6 @@ int main(int argc,char *argv[]){
 	}
 
 	//--------------内存释放，关闭端口---------------------
-	// for(int i=0;i<MAXEVENT;i++)
-	// 	delete fd_arg[i];
-	// delete [] fd_arg;
-	// free(Mymng->manager);
-	// free(Mymng->mutex);
-	// free(Mymng);
-	// for(int i=0;i<MAXEVENT;i++){
-	// 	free(reqs[i].request);
-	// 	free(reqs[i].timer);
-	// }
-	// free(reqs);
-	// free(chlist);				//内存释放
-	// free(evlist);
 
 	for(int i=0;i<MAXEVENT;i++)
 		FreeMemory(fd_arg[i],mpool);
