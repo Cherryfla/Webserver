@@ -34,7 +34,7 @@ class My_vector{	//自己实现的vector
 struct Timer{
 	t_type ttype;		//任务类型，一次还是循环
 	void *(*run)(void *args);	//回调函数
-	void *arg;					//会调函数参数
+	void *arg;					//回调函数参数
 	ull itvl;					//时间片长度(ms)
 	ull expires;				//到期时间
 	int heapIndex;				//在堆中的下标
@@ -42,17 +42,22 @@ struct Timer{
 	void Start(void *(*run)(void *args),void *arg,ull itvl, t_type ttype);
 	void OnTimer();				//无剩余时间		
 };
-struct Timer_mng{
-	vector<Heap_entry*> *heap;		//堆
-	~Timer_mng();					//析构函数
-	void DetectTimers();			//检测是否超时
-	void AddTimer(Timer* timer);	//向堆中添加一个定时器
-	void RemoveTimer(Timer* timer);	//移除定时器
-	void UpHeap(int idx);			//堆操作，向上更新
-	void DownHeap(int idx);			//堆操作，向下更新
-	void SwapHeap(int idx1, int idx2);	//更换堆中的两个元素
+class Timer_mng{
+    private:
+        vector<Heap_entry*> *heap;		//堆
+	public:
+        ~Timer_mng();					//析构函数
+        void SetHeap(vector<Heap_entry*>&nheap);
+        void DetectTimers();			//检测是否超时
+        void AddTimer(Timer* timer);	//向堆中添加一个定时器
+        void RemoveTimer(Timer* timer);	//移除定时器
+        void UpHeap(int idx);			//堆操作，向上更新
+        void DownHeap(int idx);			//堆操作，向下更新
+        void SwapHeap(int idx1, int idx2);	//更换堆中的两个元素
+        size_t GetSize();               //得到堆的大小
 };
 
 ull Get_now();			//得到当前时间(ms)
-void *Timers_det(void *arg);
+void *Timers_det(void *arg);    //循环检测是否超时
+int reset_time(Timer* timer,Timer_mng *mng);//重置定时器的时间
 #endif

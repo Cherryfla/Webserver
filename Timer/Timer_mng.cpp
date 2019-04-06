@@ -22,7 +22,7 @@ int My_vector::empty(){return tail==0;}
 Heap_entry*& My_vector::operator[](int idx){return array[idx];}
 
 
-//Timer
+//-------------------Timer---------------
 Timer::Timer(){
     heapIndex=-1;
 }
@@ -40,8 +40,11 @@ void Timer::OnTimer(){
     this->run(this->arg);
 }
  
-//Timer_mng
+//----------------Timer_mng-------------
 
+void Timer_mng::SetHeap(vector<Heap_entry*>&nheap){
+    this->heap=&nheap;
+}
 Timer_mng::~Timer_mng(){}
 
 void Timer_mng::AddTimer(Timer* timer){  
@@ -130,7 +133,11 @@ void Timer_mng::SwapHeap(int idx1, int idx2){
     (*heap)[idx1]->timer->heapIndex=idx1;
     (*heap)[idx2]->timer->heapIndex=idx2;
 }
+size_t Timer_mng::GetSize(){
+    return this->heap->size();
+}
 
+//--------------------------------------
 ull Get_now(){
     #ifdef _MSC_VER
         _timeb timebuffer;
@@ -154,12 +161,20 @@ void *Timers_det(void *arg){
         return nullptr;
     while(true){
         mng_union->mutex->lock();
-        if(mng_union->manager->heap->size()==0)
+        if(mng_union->manager->GetSize()==0)
             mng_union->mutex->wait();
         mng_union->manager->DetectTimers();
         mng_union->mutex->unlock();
     }
     return nullptr;
+}
+
+int reset_time(Timer *timer,Timer_mng *mng){
+    if(timer->heapIndex==-1){
+        return -1;
+    }
+    timer->expires=timer->itvl+Get_now();
+    mng->DownHeap(timer->heapIndex);    //时间增加，必然下移
 }
 // init()
 
