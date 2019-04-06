@@ -1,9 +1,10 @@
-#include <memory.h>  
+#include<memory.h>  
+#include<cstdio>
 #include "Memory_pool.h"  
-
+using namespace std;
 size_t check_align_addr(void*& pBuf){
     size_t align=0;
-    size_t addr=(int)pBuf;
+    size_t addr=reinterpret_cast<size_t>(pBuf);
     align=ADDR_ALIGN-addr%ADDR_ALIGN;
     pBuf=(char*)pBuf+align;
     return align;
@@ -17,7 +18,7 @@ size_t check_align_size(size_t size){
     return size;
 }  
 /************************************************************************/  
-/* 以下是链表相关操作 
+/* 以下是链表相关操作 */
 /************************************************************************/  
 
 /*   <--next--
@@ -99,15 +100,15 @@ void delete_chunk(memory_chunk*& head, memory_chunk* element){
     element->next=nullptr;
 }  
 
-void* idx2addr(Memory_pool* mem_pool, size_t idx){
-    char* p=(char*)(mem_pool->memory);
+void* idx2addr(memorypool* pMem, size_t idx){
+    char* p=(char*)(pMem->memory);
     void* ret=(void*)(p+idx*MINUNITSIZE);
       
     return ret;
 }  
 
-size_t addr2idx(Memory_pool* mem_pool, void* addr){
-    char* start=(char*)(mem_pool->memory);
+size_t addr2idx(memorypool* pMem, void* addr){
+    char* start=(char*)(pMem->memory);
     char* p=(char*)addr;
     size_t idx=(p-start)/MINUNITSIZE;
     return idx;
@@ -116,57 +117,66 @@ size_t addr2idx(Memory_pool* mem_pool, void* addr){
 /* 生成内存池 
 * pBuf: 给定的内存buffer起始地址 
 * sBufSize: 给定的内存buffer大小 
-* 返回生成的内存池指针 
+* 返回生成的内存池指针*/
 /************************************************************************/  
-Memory_pool* CreateMemoryPool(void* pBuf, size_t sBufSize){ 
+memorypool* CreateMemoryPool(size_t sBufSize){ 
+    void* pBuf=malloc(sBufSize);
     memset(pBuf,0,sBufSize);
-    Memory_pool* mem_pool=(Memory_pool*)pBuf;
+    memorypool* pMem=(memorypool*)pBuf;
     // 计算需要多少memory map单元格
 
-    size_t mempool_size=sizeof(Memory_pool);//管理单元大小
+    size_t mempool_size=sizeof(memorypool);//管理单元大小
     size_t block_size=sizeof(memory_block);
     size_t chunk_size=sizeof(memory_chunk);
 
-    mem_pool->pool_cnt=(sBufSize-mempool_size+MINUNITSIZE-1)/MINUNITSIZE;//取上整
-    mem_pool->pmem_map=(memory_block*)((char*)pBuf+mempool_size);
+    pMem->pool_cnt=(sBufSize-mempool_size+MINUNITSIZE-1)/MINUNITSIZE;//取上整
+    pMem->pmem_map=(memory_block*)((char*)pBuf+mempool_size);
     //计算chuck_pool首地址
-    mem_pool->pchunk_pool=(memory_chunk*)((char*)pBuf+mempool_size+block_size*mem_pool->pool_cnt);
+    pMem->pchunk_pool=(memory_chunk*)((char*)pBuf+mempool_size+block_size*pMem->pool_cnt);
     //计算实际存储单元的首地址
-    mem_pool->memory=(char*)pBuf+mempool_size+block_size*mem_pool->pool_cnt+chunk_size*mem_pool->pool_cnt;
+    pMem->size_offset=mempool_size+block_size*pMem->pool_cnt+chunk_size*pMem->pool_cnt;
+    pMem->memory=(char*)pBuf+pMem->size_offset;
     //计算实际用来存储的大小 
-    mem_pool->size=sBufSize-mempool_size-block_size*mem_pool->pool_cnt-chunk_size*mem_pool->pool_cnt;
-    size_t align=check_align_addr(mem_pool->memory);//实际存储单元向后移动align个字节
-    mem_pool->size-=align;//大小减去align（产生了碎片）
-    mem_pool->size=check_align_block(mem_pool->size);//按MINUNITSIZE字节对齐，使得有整数个block  
-    mem_pool->block_cnt=mem_pool->size/MINUNITSIZE;//计算含有多少个block
+    pMem->size=sBufSize-mempool_size-block_size*pMem->pool_cnt-chunk_size*pMem->pool_cnt;
+    size_t align=check_align_addr(pMem->memory);//实际存储单元向后移动align个字节
+    pMem->size-=align;//大小减去align（产生了碎片）
+    pMem->size=check_align_block(pMem->size);//按MINUNITSIZE字节对齐，使得有整数个block  
+    pMem->block_cnt=pMem->size/MINUNITSIZE;//计算含有多少个block
     //创建chunk_pool链表
-    mem_pool->pchunk_pool=create_list(mem_pool->pchunk_pool, mem_pool->pool_cnt);
+    pMem->pchunk_pool=create_list(pMem->pchunk_pool, pMem->pool_cnt);
     //初始化 pfree_mem_chunk，双向循环链表  
-    memory_chunk* tmp=pop_front(mem_pool->pchunk_pool);//拿出链表的第一个元素用来初始化
+    memory_chunk* tmp=pop_front(pMem->pchunk_pool);//拿出链表的第一个元素用来初始化
     tmp->pre=tmp;
     tmp->next=tmp;
     tmp->pfree_mem_addr=nullptr;
-    mem_pool->pool_cnt--;
+    pMem->pool_cnt--;
       
     // 初始化 pmem_map  
-    mem_pool->pmem_map[0].count=mem_pool->block_cnt;
-    mem_pool->pmem_map[0].pmem_chunk=tmp;
-    mem_pool->pmem_map[mem_pool->block_cnt-1].start=0;
+    pMem->pmem_map[0].count=pMem->block_cnt;
+    pMem->pmem_map[0].pmem_chunk=tmp;
+    pMem->pmem_map[pMem->block_cnt-1].start=0;
     
-    tmp->pfree_mem_addr=mem_pool->pmem_map;
-    push_back(mem_pool->pfree_mem_chunk,tmp);
-    mem_pool->free_chunk_cnt=1;
-    mem_pool->mem_used_size=0;
-    return mem_pool;
+    tmp->pfree_mem_addr=pMem->pmem_map;
+    push_back(pMem->pfree_mem_chunk,tmp);
+    pMem->free_chunk_cnt=1;
+    pMem->used_size=0;
+    pMem->rest_size=sBufSize;
+    return pMem;
 }  
-void ReleaseMemoryPool(Memory_pool** ppMem){}  
+void ReleaseMemoryPool(memorypool* pMem){
+    free(pMem->memory);
+}  
 /************************************************************************/  
 /* 从内存池中分配指定大小的内存  
 * pMem: 内存池 指针 
 * sMemorySize: 要分配的内存大小 
-* 成功时返回分配的内存起始地址，失败返回nullptr 
+* 成功时返回分配的内存起始地址，失败返回nullptr */
 /************************************************************************/  
-void* GetMemory(size_t sMemorySize, Memory_pool* pMem){
+void* get_memory(size_t sMemorySize, memorypool* pMem){
+    //如果剩余部分不足就重新申请空间
+    if(sMemorySize>pMem->rest_size-pMem->size_offset)
+        return malloc(sMemorySize);
+    
     sMemorySize=check_align_size(sMemorySize);
     size_t idx=0;
     memory_chunk* tmp=pMem->pfree_mem_chunk;
@@ -179,7 +189,8 @@ void* GetMemory(size_t sMemorySize, Memory_pool* pMem){
     if(idx==pMem->free_chunk_cnt){//如果到了最后一个，说明没有足够的空间可以分配
         return nullptr;
     }
-    pMem->mem_used_size+=sMemorySize;//使用了的内存加sMemorySize
+    pMem->used_size+=sMemorySize;//使用了的内存加sMemorySize
+    pMem->rest_size-=sMemorySize;//剩余内存减了sMemorySize
     if(tmp->pfree_mem_addr->count*MINUNITSIZE==sMemorySize){
         // 当要分配的内存大小与当前chunk中的内存大小相同时，从pfree_mem_chunk链表中删除此chunk  
         size_t current_idx=(tmp->pfree_mem_addr-pMem->pmem_map);
@@ -221,17 +232,26 @@ void* GetMemory(size_t sMemorySize, Memory_pool* pMem){
 /************************************************************************/  
 /* 从内存池中释放申请到的内存 
 * pMem：内存池指针 
-* ptrMemoryBlock：申请到的内存起始地址 
+* ptrMemoryBlock：申请到的内存起始地址 */
 /************************************************************************/  
-void add_new_chunk(Memory_pool *&pMem,memory_block *&current_block){
+void add_new_chunk(memory_block *&current_block,memorypool *&pMem){
     memory_chunk* new_chunk=pop_front(pMem->pchunk_pool);
     new_chunk->pfree_mem_addr=current_block;
     current_block->pmem_chunk=new_chunk;
-    push_back(pMem->pfree_mem_chunk, new_chunk);
+    push_back(pMem->pfree_mem_chunk, new_chunk);//使用栈上的内存？
     pMem->pool_cnt--;
     pMem->free_chunk_cnt++;
 }
-void FreeMemory(void *ptrMemoryBlock,Memory_pool* pMem){
+void free_memory(void *ptrMemoryBlock,memorypool* pMem){
+    size_t current_addr=reinterpret_cast<size_t>(ptrMemoryBlock);
+    size_t mem_addr=reinterpret_cast<size_t>(ptrMemoryBlock);
+    size_t all_size=pMem->rest_size+pMem->used_size;
+    // 如果这个内存不在内存池内
+    if(current_addr<mem_addr||current_addr>=mem_addr+all_size){
+        free(ptrMemoryBlock);
+        return;
+    }
+
     size_t current_idx=addr2idx(pMem,ptrMemoryBlock);
     size_t size=pMem->pmem_map[current_idx].count*MINUNITSIZE;
     // 判断与当前释放的内存块相邻的内存块是否可以与当前释放的内存块合并  
@@ -240,8 +260,9 @@ void FreeMemory(void *ptrMemoryBlock,Memory_pool* pMem){
     memory_block* current_block=&(pMem->pmem_map[current_idx]);
     // 第一个  
     if(current_idx==0){
-        if (current_block->count<pMem->block_cnt&&next_block->pmem_chunk!=nullptr){//?为什么会比block_cnt大
-            next_block=&(pMem->pmem_map[current_idx+current_block->count]);
+        next_block=&(pMem->pmem_map[current_idx+current_block->count]);
+        if(current_block->count<pMem->block_cnt&&next_block->pmem_chunk!=nullptr){//?为什么会比block_cnt大
+            
             // 如果后一个内存块是空闲的，合并  
             next_block->pmem_chunk->pfree_mem_addr=current_block;
             pMem->pmem_map[current_idx+current_block->count+next_block->count-1].start=current_idx;
@@ -250,13 +271,13 @@ void FreeMemory(void *ptrMemoryBlock,Memory_pool* pMem){
             next_block->pmem_chunk=nullptr;
         }  
         else{
-            add_new_chunk(pMem,current_block);
+            add_new_chunk(current_block,pMem);
         }         
     }  
     // 最后一个  
     else if(current_idx==pMem->block_cnt-1){
+        pre_block=&(pMem->pmem_map[current_idx-1]);
         if(current_block->count<pMem->block_cnt&&pre_block->pmem_chunk!=nullptr){
-            pre_block=&(pMem->pmem_map[current_idx-1]);
             size_t idx=pre_block->count;
             pre_block=&(pMem->pmem_map[idx]);
               
@@ -267,7 +288,7 @@ void FreeMemory(void *ptrMemoryBlock,Memory_pool* pMem){
             // 如果前一块内存不是空闲的，在pfree_mem_chunk中增加一个chunk  
         }  
         else{
-            add_new_chunk(pMem,current_block);
+            add_new_chunk(current_block,pMem);
         }  
     }  
     else{ 
@@ -277,7 +298,7 @@ void FreeMemory(void *ptrMemoryBlock,Memory_pool* pMem){
         pre_block=&(pMem->pmem_map[idx]);
         bool is_back_merge=false;
         if(next_block->pmem_chunk==nullptr && pre_block->pmem_chunk==nullptr){
-            add_new_chunk(pMem,current_block);
+            add_new_chunk(current_block,pMem);
         }  
         // 后一个内存块  
         if(next_block->pmem_chunk!=nullptr){
@@ -301,5 +322,6 @@ void FreeMemory(void *ptrMemoryBlock,Memory_pool* pMem){
             current_block->pmem_chunk=nullptr;
         }         
     }  
-    pMem->mem_used_size-=size;
+    pMem->used_size-=size;
+    pMem->rest_size+=size;
 }  

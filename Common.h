@@ -1,5 +1,5 @@
-#ifndef __WEB_SERVER_H_
-#define __WEB_SERVER_H_
+#ifndef __COMMON_H_
+#define __COMMON_H_
 #include<cstdio>
 #include<iostream>
 #include<stdio.h>
@@ -28,6 +28,8 @@
 #define MAXEVENT 7
 #define CBTIME 10000
 
+extern memorypool *mpool;
+
 const size_t MSIZE=128*1024*1024;
 struct Req_union{
 	int sockfd;
@@ -39,5 +41,5 @@ struct Mng_union{
 };
 int set_nonblock(int sockfd);	//设置非阻塞
 void *call_back(void *arg);		//关闭套接字的回调函数
-
+void* deal_req(void *arg);	    //处理请求的主要函数
 #endif

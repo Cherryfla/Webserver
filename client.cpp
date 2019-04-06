@@ -9,7 +9,7 @@
 #include<netinet/in.h>
 #include<sys/stat.h>
 #include<netinet/in.h>
-#define PORT 8848 /* 客户机连接远程主机的端口 */
+#define PORT 8088 /* 客户机连接远程主机的端口 */
 #define MAXDATASIZE 1024 /* 每次可以接收的最大字节 */
 int main(int argc,char *argv[]){
 	int sockfd,numbytes;
