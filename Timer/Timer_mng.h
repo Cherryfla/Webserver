@@ -2,8 +2,8 @@
 #define __TIMER_MNG_
 
 #include<vector>
-#define ull unsigned long long 
-#define __INF__ 1e18
+typedef unsigned long long ull;
+const ull __INF__=1e18;
 
 using namespace std;
 
@@ -58,6 +58,5 @@ class Timer_mng{
 };
 
 ull Get_now();			//得到当前时间(ms)
-void *Timers_det(void *arg);    //循环检测是否超时
 int reset_time(Timer* timer,Timer_mng *mng);//重置定时器的时间
 #endif

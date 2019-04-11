@@ -1,7 +1,8 @@
 #include"Common.h"
 using namespace std;
 
-memorypool *mpool;
+memorypool *mpool;      //内存池
+my_mutex union_lock;    //用于定时器的锁
 int main(int argc,char *argv[]){
 	//----------------------声明区----------------------------
 	struct sockaddr_in addr,naddr;			//在头文件<netinet/in.h>中
@@ -10,18 +11,18 @@ int main(int argc,char *argv[]){
 	struct kevent *evlist; 		//触发事件
 	struct Req_union *reqs;		//用来处理请求
 	threadpool tpool;			//线程池
-	//memorypool *mpool;			//内存池
 	Mng_union *Mymng;			//定时器管理单元
 	int reuse=1,kq;				//控制端口复用，kqueue队列
 	vector<Heap_entry*>Heap;	//用来管理定时器的堆
-	int **fd_arg;				//用来传递多线程参数
+//	int **fd_arg;				//用来传递多线程参数
 	//-------------------------------------------------------
 
 	//---------------------------初始化区-----------------------
+//    union_lock.init();
 	mpool=CreateMemoryPool(MSIZE);
-	fd_arg=static_cast<int**>(get_memory(MAXEVENT*sizeof(int*),mpool));
-	for(int i=0;i<MAXEVENT;i++)
-		fd_arg[i]=static_cast<int*>(get_memory(sizeof(int),mpool));
+//	fd_arg=static_cast<int**>(get_memory(MAXEVENT*sizeof(int*),mpool));
+//	for(int i=0;i<MAXEVENT;i++)
+//		fd_arg[i]=static_cast<int*>(get_memory(sizeof(int),mpool));
 	//初始化kevent结构体
 	chlist=static_cast<struct kevent*>(get_memory(sizeof(struct kevent),mpool));
 	evlist=static_cast<struct kevent*>(get_memory(sizeof(struct kevent)*MAXEVENT,mpool));
@@ -37,7 +38,7 @@ int main(int argc,char *argv[]){
 	}
 	
 	Mymng->mutex->init();
-	Mymng->manager->heap=&Heap;			//vector指针操作
+	Mymng->manager->SetHeap(Heap);			//vector指针操作
     threadpool_init(&tpool, MAXEVENT+1);
     //--------------------------------------------------------
 	int sockfd=socket(PF_INET,SOCK_STREAM,0);//建立套接字
@@ -98,16 +99,16 @@ int main(int argc,char *argv[]){
                 	printf("client connected\n\n");
 
 					reqs[i].sockfd=nsockfd;
-					fd_arg[i]=&reqs[i].sockfd;
+				//	fd_arg[i]=&reqs[i].sockfd;
 					//set_nonblock(nsockfd);	//设置非阻塞
 					if(nsockfd==-1){
 						perror("accept");
 						exit(1);
 					}
 					//---------------线程池操作----------------
-					threadpool_add_task(&tpool,deal_req,fd_arg[i]);	//加入线程池
+					threadpool_add_task(&tpool,deal_req,&reqs[i]);	//加入线程池
 					//---------------定时器操作--------------
-					reqs[i].timer->Start(call_back,fd_arg[i],CBTIME,ONCE);
+					reqs[i].timer->Start(call_back,&(reqs[i].sockfd),CBTIME,ONCE);
 					Mymng->mutex->lock();					//多线程操作加锁	
 					Mymng->manager->AddTimer(reqs[i].timer);
 					Mymng->mutex->signal();					//唤醒睡眠的定时器管理线程
@@ -121,9 +122,9 @@ int main(int argc,char *argv[]){
 
 	//--------------内存释放，关闭端口---------------------
 
-	for(int i=0;i<MAXEVENT;i++)
-		free_memory(fd_arg[i],mpool);
-	free_memory(fd_arg,mpool);
+//	for(int i=0;i<MAXEVENT;i++)
+	// 	free_memory(fd_arg[i],mpool);
+	// free_memory(fd_arg,mpool);
 	free_memory(Mymng->manager,mpool);
 	free_memory(Mymng->mutex,mpool);
 	free_memory(Mymng,mpool);

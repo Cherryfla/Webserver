@@ -29,17 +29,21 @@
 #define CBTIME 10000
 
 extern memorypool *mpool;
+extern my_mutex union_lock;
 
 const size_t MSIZE=128*1024*1024;
 struct Req_union{
+    static my_mutex ulock;
 	int sockfd;
 	Timer *timer;
 };
+
 struct Mng_union{
 	Timer_mng *manager;
 	my_mutex *mutex;
 };
 int set_nonblock(int sockfd);	//设置非阻塞
+void *Timers_det(void *arg);    //循环检测定时器
 void *call_back(void *arg);		//关闭套接字的回调函数
-void* deal_req(void *arg);	    //处理请求的主要函数
+void *deal_req(void *arg);	    //处理请求的主要函数
 #endif

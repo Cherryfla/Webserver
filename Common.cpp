@@ -1,6 +1,6 @@
 #include"Common.h"
 
-
+my_mutex Req_union::ulock=union_lock;
 int set_nonblock(int sockfd){
 	int flags;
 	if((flags=fcntl(sockfd,F_GETFL,NULL))<0)
@@ -8,6 +8,21 @@ int set_nonblock(int sockfd){
 	if(fcntl(sockfd,F_SETFL,flags|O_NONBLOCK)== -1)
 		return -1;
 	return 0;
+}
+void *Timers_det(void *arg){
+    if(arg==nullptr)
+        return nullptr;
+    Mng_union *mng_union=(Mng_union *)arg;
+    if(mng_union->mutex==nullptr||mng_union->manager==nullptr)
+        return nullptr;
+    while(true){
+        mng_union->mutex->lock();
+        if(mng_union->manager->GetSize()==0)
+            mng_union->mutex->wait();
+        mng_union->manager->DetectTimers();
+        mng_union->mutex->unlock();
+    }
+    return nullptr;
 }
 void *call_back(void *arg){
 	if(arg==nullptr)
@@ -17,11 +32,12 @@ void *call_back(void *arg){
 	return nullptr;
 }
 void* deal_req(void* arg){
-	int *Got_arg=static_cast<int*>(arg);
+	Req_union *Got_arg=static_cast<Req_union*>(arg);
 	char *buff=static_cast<char*>(get_memory(BUFFSIZE*sizeof(char),mpool));
 
-	recv(*Got_arg,buff,BUFFSIZE,0);
-	http_req *Got_req=new http_req(*Got_arg,buff);
+	recv(Got_arg->sockfd,buff,BUFFSIZE,0);
+    
+	http_req *Got_req=new http_req(Got_arg->sockfd,buff);
 
 	printf("------------------------------------------------\n");
 	printf("Recive message from client: \n%s\n",buff);

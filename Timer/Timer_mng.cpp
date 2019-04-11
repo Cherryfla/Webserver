@@ -3,7 +3,7 @@
 #include<sys/time.h>
 #include<iostream>
 #include"Timer_mng.h"
-#include"../Common.h"
+//#include"../Common.h"
 using namespace std;
 //My_vector
 My_vector::My_vector(){
@@ -153,28 +153,13 @@ ull Get_now(){
     #endif
 }
 
-void *Timers_det(void *arg){
-    if(arg==nullptr)
-        return nullptr;
-    Mng_union *mng_union=(Mng_union *)arg;
-    if(mng_union->mutex==nullptr||mng_union->manager==nullptr)
-        return nullptr;
-    while(true){
-        mng_union->mutex->lock();
-        if(mng_union->manager->GetSize()==0)
-            mng_union->mutex->wait();
-        mng_union->manager->DetectTimers();
-        mng_union->mutex->unlock();
-    }
-    return nullptr;
-}
-
 int reset_time(Timer *timer,Timer_mng *mng){
     if(timer->heapIndex==-1){
         return -1;
     }
     timer->expires=timer->itvl+Get_now();
     mng->DownHeap(timer->heapIndex);    //时间增加，必然下移
+    return 0;
 }
 // init()
 
