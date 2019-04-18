@@ -31,11 +31,11 @@ int main(int argc,char *argv[]){
 	Mymng=static_cast<struct Mng_union*>(get_memory(sizeof(struct Mng_union),mpool));
 	Mymng->manager=static_cast<struct Timer_mng*>(get_memory(sizeof(Timer_mng),mpool));
 	Mymng->mutex=static_cast<struct my_mutex*>(get_memory(sizeof(my_mutex),mpool));
-	reqs=static_cast<struct Req_union*>(get_memory(sizeof(struct Req_union)*MAXEVENT,mpool));
-	for(int i=0;i<MAXEVENT;i++){
+	//reqs=static_cast<struct Req_union*>(get_memory(sizeof(struct Req_union)*MAXEVENT,mpool));
+	//for(int i=0;i<MAXEVENT;i++){
 		//reqs[i].request=(http_req*)get_memory(sizeof(http_req),mpool);
-		reqs[i].timer=static_cast<Timer*>(get_memory(sizeof(Timer),mpool));
-	}
+//		reqs[i].timer=static_cast<Timer*>(get_memory(sizeof(Timer),mpool));
+//	}
 	
 	Mymng->mutex->init();
 	Mymng->manager->SetHeap(Heap);			//vector指针操作
@@ -97,8 +97,9 @@ int main(int argc,char *argv[]){
 					int nsockfd=accept(sockfd,(struct sockaddr*)&naddr,&len);	//呼叫地址
 
                 	printf("client connected\n\n");
-
-					reqs[i].sockfd=nsockfd;
+                    auto reqs=make_shared<Req_union>();
+                    reqs->timer=static_cast<Timer*>(get_memory(sizeof(Timer),mpool));
+					reqs->sockfd=nsockfd;
 				//	fd_arg[i]=&reqs[i].sockfd;
 					//set_nonblock(nsockfd);	//设置非阻塞
 					if(nsockfd==-1){
@@ -106,11 +107,11 @@ int main(int argc,char *argv[]){
 						exit(1);
 					}
 					//---------------线程池操作----------------
-					threadpool_add_task(&tpool,deal_req,&reqs[i]);	//加入线程池
+					threadpool_add_task(&tpool,deal_req,reqs.get());	//加入线程池
 					//---------------定时器操作--------------
-					reqs[i].timer->Start(call_back,&(reqs[i].sockfd),CBTIME,ONCE);
+					reqs->timer->Start(call_back,&(reqs->sockfd),CBTIME,ONCE);
 					Mymng->mutex->lock();					//多线程操作加锁	
-					Mymng->manager->AddTimer(reqs[i].timer);
+					Mymng->manager->AddTimer(reqs->timer);
 					Mymng->mutex->signal();					//唤醒睡眠的定时器管理线程
 					Mymng->mutex->unlock();					//解锁
 
@@ -128,11 +129,11 @@ int main(int argc,char *argv[]){
 	free_memory(Mymng->manager,mpool);
 	free_memory(Mymng->mutex,mpool);
 	free_memory(Mymng,mpool);
-	for(int i=0;i<MAXEVENT;i++){
-		//free_memory(reqs[i].request,mpool);
-		free_memory(reqs[i].timer,mpool);
-	}
-	free_memory(reqs,mpool);
+	// for(int i=0;i<MAXEVENT;i++){
+	// 	//free_memory(reqs[i].request,mpool);
+	// 	free_memory(reqs[i].timer,mpool);
+	// }
+	// free_memory(reqs,mpool);
 	free_memory(chlist,mpool);				//内存释放
 	free_memory(evlist,mpool);
 	threadpool_destroy(&tpool);	//销毁线程池
